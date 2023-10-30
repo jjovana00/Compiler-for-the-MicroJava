@@ -1,0 +1,9 @@
+//	Oporavak od greske iskaz dodele i globalnih promenljivih
+
+program test302
+    int aa, c;
+{
+	void main() {
+		c = c +;
+	}
+}

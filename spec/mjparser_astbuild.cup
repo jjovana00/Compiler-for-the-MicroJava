@@ -1,0 +1,276 @@
+package rs.ac.bg.etf.pp1;
+
+import java_cup.runtime.*;
+import org.apache.log4j.*;
+import rs.ac.bg.etf.pp1.ast.*;
+
+parser code {:
+
+	Logger log = Logger.getLogger(getClass());
+   	
+   	boolean errorDetected = false;
+     
+    public void report_fatal_error(String message, Object info) throws java.lang.Exception {
+      done_parsing();
+      report_error(message, info);
+    }
+  
+    public void syntax_error(Symbol cur_token) {
+        report_error("\nSintaksna greska", cur_token);
+    }
+  
+    public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
+        report_fatal_error("Fatalna greska, parsiranje se ne moze nastaviti", cur_token);
+    }
+
+    public void report_error(String message, Object info) {
+    	errorDetected = true;
+    	StringBuilder msg = new StringBuilder(message); 
+    	if (info instanceof Symbol)
+            msg.append (" na liniji ").append(((Symbol)info).left);
+        log.error(msg.toString());
+    }
+
+:}
+
+scan with {:
+	Symbol s = this.getScanner().next_token();
+	if (s != null && s.value != null) 
+		log.info(s.toString() + " " + s.value.toString());
+	return s;
+:} 
+
+terminal String IDENT;
+terminal Integer NUM;
+terminal Character CHAR;
+terminal Boolean BOOL;
+
+terminal PROGRAM, LCURLYBRACE, RCURLYBRACE, VOID, LPAREN, RPAREN, CONST, SEMI, COMMA, ASSIGNMENT, LSQUAREBRACE, RSQUAREBRACE;
+terminal RETURN, READ, PRINT, INCREMENT, DECREMENT, NEW;
+terminal PLUS, MINUS, MUL, DIV, MOD;
+
+nonterminal Program Program;
+nonterminal ProgDeclList ProgDeclList;
+nonterminal ProgDecl ProgDecl;
+nonterminal ConstDecl ConstDecl;
+nonterminal VarDeclList VarDeclList;
+nonterminal VarDecl VarDecl;
+nonterminal StatementList StatementList;  
+nonterminal MainMethodDecl MainMethodDecl;
+nonterminal Statement Statement;
+nonterminal ValueAssignment ValueAssignment;
+nonterminal ValueAssignmentList ValueAssignmentList;
+nonterminal VarDeclaration VarDeclaration;
+nonterminal VarDeclarationList VarDeclarationList;
+nonterminal DesignatorStatement DesignatorStatement;
+nonterminal Assignop Assignop;
+nonterminal DesignatorOpList DesignatorOpList;
+nonterminal DesignatorOpListElem DesignatorOpListElem;
+nonterminal AddOpInExprList AddOpInExprList;
+nonterminal Addop Addop;
+nonterminal MulOpInExprList MulOpInExprList;
+nonterminal Mulop Mulop;
+nonterminal Label Label;
+
+nonterminal rs.etf.pp1.symboltable.concepts.Obj ProgName, Consts, MethodName, Designator, DesignatorArrayName, DesignatorMatrixName, Expr;
+nonterminal rs.etf.pp1.symboltable.concepts.Obj Factor, Term, PrintArgument, Negative;
+nonterminal rs.etf.pp1.symboltable.concepts.Struct Type;
+
+Program ::= (Program) PROGRAM ProgName:P1 ProgDeclList:P2 LCURLYBRACE MainMethodDecl:M3 RCURLYBRACE {: RESULT=new Program(P1, P2, M3); RESULT.setLine(P1left); :};
+
+ProgName ::= (ProgName) IDENT:progName {: RESULT=new ProgName(progName); RESULT.setLine(progNameleft); :};
+
+ProgDeclList ::= (ProgDeclarations) ProgDeclList:P1 ProgDecl:P2 {: RESULT=new ProgDeclarations(P1, P2); RESULT.setLine(P1left); :}
+				|
+				(NoProgDecl) {: RESULT=new NoProgDecl(); :} /*epsilon*/
+				;
+				
+ProgDecl ::= (ConstProgDecl) ConstDecl:C1 {: RESULT=new ConstProgDecl(C1); RESULT.setLine(C1left); :}
+			 |
+			 (VarProgDecl) VarDecl:V1 {: RESULT=new VarProgDecl(V1); RESULT.setLine(V1left); :}
+			 ;
+			
+				   
+MainMethodDecl ::= (MainMethodDecl) VOID:returnType MethodName:M1 LPAREN RPAREN VarDeclList:V2 LCURLYBRACE StatementList:S3 RCURLYBRACE {: RESULT=new MainMethodDecl(M1, V2, S3); RESULT.setLine(M1left); :};
+			   
+MethodName ::= (MethodName) IDENT:methodName {: RESULT=new MethodName(methodName); RESULT.setLine(methodNameleft); :};
+			   
+Type ::= (Type) IDENT:typeName {: RESULT=new Type(typeName); RESULT.setLine(typeNameleft); :};
+				 
+
+ConstDecl ::= (ConstDecl) CONST Type:T1 ValueAssignment:V2 ValueAssignmentList:V3 SEMI {: RESULT=new ConstDecl(T1, V2, V3); RESULT.setLine(T1left); :};
+
+ValueAssignmentList ::= (ValueAssignments) ValueAssignmentList:V1 COMMA ValueAssignment:V2 {: RESULT=new ValueAssignments(V1, V2); RESULT.setLine(V1left); :}
+						|
+						(NoValueAssignments) {: RESULT=new NoValueAssignments(); :} /*epsilon*/
+						;
+
+					    
+ValueAssignment ::= (ValueAssignment) IDENT:constName ASSIGNMENT Consts:constValue {: RESULT=new ValueAssignment(constName, constValue); RESULT.setLine(constNameleft); :};
+
+Consts ::= (NumConst) NUM:numConst {: RESULT=new NumConst(numConst); RESULT.setLine(numConstleft); :} 
+			|
+			(CharConst) CHAR:charConst {: RESULT=new CharConst(charConst); RESULT.setLine(charConstleft); :}
+			|
+			(BoolConst) BOOL:boolConst {: RESULT=new BoolConst(boolConst); RESULT.setLine(boolConstleft); :}
+			;
+			
+VarDeclList ::= (IsVarDeclList) VarDeclList:V1 VarDecl:V2 {: RESULT=new IsVarDeclList(V1, V2); RESULT.setLine(V1left); :}
+				|
+				(NoVarDeclList) {: RESULT=new NoVarDeclList(); :} /*epsilon*/
+				;
+			
+			
+VarDecl ::= (VarDecls) Type:varType VarDeclaration:V1 VarDeclarationList:V2 SEMI {: RESULT=new VarDecls(varType, V1, V2); RESULT.setLine(varTypeleft); :};
+
+
+
+VarDeclarationList ::= (MulipleVarDeclaration) VarDeclarationList:V1 COMMA  VarDeclaration:V2 {: RESULT=new MulipleVarDeclaration(V1, V2); RESULT.setLine(V1left); :}
+					  |
+					  (VarDeclarationListError) Type:varType error:e
+						{: parser.report_error("Izvrsen oporavak u liniji " + eleft, null); :} {: RESULT=new VarDeclarationListError(varType); RESULT.setLine(varTypeleft); :}
+					  |
+					  (NoVarDeclarationList) {: RESULT=new NoVarDeclarationList(); :} /*epsilon*/
+					  ; 
+							
+VarDeclaration ::= (SingleVarDeclaration) IDENT:varName {: RESULT=new SingleVarDeclaration(varName); RESULT.setLine(varNameleft); :} 
+				  | 
+				  (ArrayVarDeclaration) IDENT:arrayName LSQUAREBRACE RSQUAREBRACE {: RESULT=new ArrayVarDeclaration(arrayName); RESULT.setLine(arrayNameleft); :}
+				  |
+				  (MatrixVarDeclaration) IDENT:matrixName LSQUAREBRACE RSQUAREBRACE LSQUAREBRACE RSQUAREBRACE {: RESULT=new MatrixVarDeclaration(matrixName); RESULT.setLine(matrixNameleft); :}
+				  |
+				  (VarDeclarationError) error:e
+				  {: parser.report_error("Izvrsen oporavak u liniji " + eleft, null); :} {: RESULT=new VarDeclarationError(); :}
+				  ;
+
+StatementList ::= (StmtList) StatementList:S1 Statement:S2 {: RESULT=new StmtList(S1, S2); RESULT.setLine(S1left); :} 
+				  |
+				  (NoStmtList) {: RESULT=new NoStmtList(); :} /*epsilon*/
+				  ;		
+				  
+				  
+Statement ::= (DesigStatement) DesignatorStatement:D1 SEMI {: RESULT=new DesigStatement(D1); RESULT.setLine(D1left); :}
+			  |
+			  (ReturnStatement) RETURN SEMI {: RESULT=new ReturnStatement(); :}
+			  |
+			  (ReadStatement) READ LPAREN Designator:D1 RPAREN SEMI {: RESULT=new ReadStatement(D1); RESULT.setLine(D1left); :}
+			  |
+			  (PrintStatement) PRINT LPAREN Expr:E1 PrintArgument:P2 RPAREN SEMI {: RESULT=new PrintStatement(E1, P2); RESULT.setLine(E1left); :}
+			  |
+			  (StatementsBlock) LCURLYBRACE StatementList:S1 RCURLYBRACE {: RESULT=new StatementsBlock(S1); RESULT.setLine(S1left); :}
+			  ;
+			  			 			  
+               
+PrintArgument ::= (IsPrintArgument) COMMA NUM:numValue {: RESULT=new IsPrintArgument(numValue); RESULT.setLine(numValueleft); :}
+				  |
+				  (NoPrintArgument) {: RESULT=new NoPrintArgument(); :} /*epsilon*/
+				  ;	 
+				  
+DesignatorStatement ::= (DesignatorAssignmentOp) Designator:D1 Assignop:A2 Expr:E3 {: RESULT=new DesignatorAssignmentOp(D1, A2, E3); RESULT.setLine(D1left); :}
+						|
+						(DesignatorIncrementOp) Designator:D1 INCREMENT {: RESULT=new DesignatorIncrementOp(D1); RESULT.setLine(D1left); :}
+						|
+						(DesignatorDecrementOp) Designator:D1 DECREMENT {: RESULT=new DesignatorDecrementOp(D1); RESULT.setLine(D1left); :}
+						|
+						(DesignatorStatementError ) Designator:D1 Assignop:A2 error:e
+						{: parser.report_error("Izvrsen oporavak u liniji " + eleft, null); :} {: RESULT=new DesignatorStatementError(D1, A2); RESULT.setLine(D1left); :}
+						;				  
+					  
+
+Expr ::= (Expr) Negative:N1 AddOpInExprList:A2 {: RESULT=new Expr(N1, A2); RESULT.setLine(N1left); :};
+
+Negative ::= (IsNegative) MINUS Term:exprTerm {: RESULT=new IsNegative(exprTerm); RESULT.setLine(exprTermleft); :}
+		     |
+		     (NoNegative) Term:exprTerm {: RESULT=new NoNegative(exprTerm); RESULT.setLine(exprTermleft); :}
+		     ;
+		     
+AddOpInExprList ::= (IsAddOpInExprList) AddOpInExprList:A1 Addop:A2 Term:T3 {: RESULT=new IsAddOpInExprList(A1, A2, T3); RESULT.setLine(A1left); :}
+					|
+					(NoAddOpInExprList) {: RESULT=new NoAddOpInExprList(); :}/*epsilon*/
+					;
+					
+
+
+Term ::= (Term) Factor:termFactor MulOpInExprList:M1 {: RESULT=new Term(termFactor, M1); RESULT.setLine(termFactorleft); :};
+					  
+MulOpInExprList ::= (IsMulOpInExprList) MulOpInExprList:M1 Mulop:M2 Factor:F3 {: RESULT=new IsMulOpInExprList(M1, M2, F3); RESULT.setLine(M1left); :}
+					|
+					(NoMulOpInExprList) {: RESULT=new NoMulOpInExprList(); :}/*epsilon*/
+					;
+							
+
+Factor ::= (DesignatorFactor) Designator:factorDesignator {: RESULT=new DesignatorFactor(factorDesignator); RESULT.setLine(factorDesignatorleft); :} 
+		   |
+		   (ConstFactor) Consts:C1 {: RESULT=new ConstFactor(C1); RESULT.setLine(C1left); :}
+		   |
+		   (NewArrayFactor) NEW Type:factorArrayType LSQUAREBRACE Expr:numofElInArray RSQUAREBRACE {: RESULT=new NewArrayFactor(factorArrayType, numofElInArray); RESULT.setLine(factorArrayTypeleft); :}
+		   |
+		   (NewMatrixFaxtor) NEW Type:factorMatrixType LSQUAREBRACE Expr:numOfRows RSQUAREBRACE LSQUAREBRACE Expr:numOfColumn RSQUAREBRACE {: RESULT=new NewMatrixFaxtor(factorMatrixType, numOfRows, numOfColumn); RESULT.setLine(factorMatrixTypeleft); :}
+		   |
+		   (ExprFactor) LPAREN Expr:factorExpr RPAREN {: RESULT=new ExprFactor(factorExpr); RESULT.setLine(factorExprleft); :}
+		   ;
+		   
+			     
+Designator ::= (DesignatorVar) IDENT:varName {: RESULT=new DesignatorVar(varName); RESULT.setLine(varNameleft); :}
+			    |
+			   (DesignatorArray) DesignatorArrayName:D1 LSQUAREBRACE Expr:index RSQUAREBRACE {: RESULT=new DesignatorArray(D1, index); RESULT.setLine(D1left); :}
+			   |
+			   (DesignatorMatirx) DesignatorArrayName:D1 LSQUAREBRACE Expr:row RSQUAREBRACE LSQUAREBRACE Expr:column RSQUAREBRACE {: RESULT=new DesignatorMatirx(D1, row, column); RESULT.setLine(D1left); :}
+			   ;
+
+DesignatorArrayName ::= (DesignatorArrayName) IDENT:arrayName {: RESULT=new DesignatorArrayName(arrayName); RESULT.setLine(arrayNameleft); :};
+				  
+Label ::= (Label) IDENT:I1 {: RESULT=new Label(I1); RESULT.setLine(I1left); :};
+
+Assignop ::= (Assignop) ASSIGNMENT {: RESULT=new Assignop(); :};
+
+		  
+Addop ::= (PlusOp) PLUS {: RESULT=new PlusOp(); :}
+		  |
+		  (MinusOp) MINUS {: RESULT=new MinusOp(); :}
+		  ;
+		  
+Mulop ::= (MultiplicationOp) MUL {: RESULT=new MultiplicationOp(); :}
+		  |
+		  (DivOp) DIV {: RESULT=new DivOp(); :}
+		  |
+		  (ModOp) MOD {: RESULT=new ModOp(); :}
+		  ;
+
+			     
+
+		   
+
+
+
+
+
+					
+
+
+
+
+				  
+				  
+              
+			  
+
+
+
+					
+
+					
+
+					
+
+
+
+				  
+
+			 
+
+				
+
+
+
+				

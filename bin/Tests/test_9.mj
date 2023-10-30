@@ -1,0 +1,36 @@
+//Test 302
+
+program test
+const int q1 = 1, q2 = 2, q3 = 3;
+const char p1 = 'a', p2 = false;
+const bool r = false;
+int i, j, k[];
+char l[], m, n;
+float f1, f2;
+{
+	void main()
+	int z;
+	char x, y;
+	{
+		q1 = 2; //
+		q2 = 'a'; //
+		p1 = q1; //
+		l[1] = p1; 
+		l['1'] = p1; //
+		l[1+8*9]= p1;
+		l[l[1]] =p1; //
+		l[k[j]] = p1;
+		l[k[j]] = p2; //
+		l[k[(1+9)*90]] = 'a';
+		l[k[(1+false)*90]] = 'a'; //
+		l[k[(1)]] = 's';
+		l[k[(false)]] = 'a'; //
+		l[k[(false)]] = false; //
+		i = j;
+		i = j + k + m; //
+		i = j + k[1] *9;
+		i = j+ j+j+j+j+j+j+j;
+		l = m; //
+	}
+	
+}

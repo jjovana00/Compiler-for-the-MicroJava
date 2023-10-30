@@ -1,0 +1,259 @@
+package rs.ac.bg.etf.pp1;
+
+import java_cup.runtime.*;
+import org.apache.log4j.*;
+import rs.ac.bg.etf.pp1.ast.*;
+
+parser code {:
+
+	Logger log = Logger.getLogger(getClass());
+   	
+   	boolean errorDetected = false;
+     
+    public void report_fatal_error(String message, Object info) throws java.lang.Exception {
+      done_parsing();
+      report_error(message, info);
+    }
+  
+    public void syntax_error(Symbol cur_token) {
+        report_error("\nSintaksna greska", cur_token);
+    }
+  
+    public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
+        report_fatal_error("Fatalna greska, parsiranje se ne moze nastaviti", cur_token);
+    }
+
+    public void report_error(String message, Object info) {
+    	errorDetected = true;
+    	StringBuilder msg = new StringBuilder(message); 
+    	if (info instanceof Symbol)
+            msg.append (" na liniji ").append(((Symbol)info).left);
+        log.error(msg.toString());
+    }
+
+:}
+
+scan with {:
+	Symbol s = this.getScanner().next_token();
+	if (s != null && s.value != null) 
+		log.info(s.toString() + " " + s.value.toString());
+	return s;
+:} 
+
+terminal String IDENT;
+terminal Integer NUM;
+terminal Character CHAR;
+terminal Boolean BOOL;
+
+terminal PROGRAM, LCURLYBRACE, RCURLYBRACE, VOID, LPAREN, RPAREN, CONST, SEMI, COMMA, ASSIGNMENT, LSQUAREBRACE, RSQUAREBRACE;
+terminal RETURN, READ, PRINT, INCREMENT, DECREMENT, NEW;
+terminal PLUS, MINUS, MUL, DIV, MOD;
+
+nonterminal Program, ProgDeclList, ProgDecl, ConstDecl, VarDeclList, VarDecl, StatementList;  
+nonterminal MainMethodDecl, Statement, ValueAssignment, ValueAssignmentList, VarDeclaration, VarDeclarationList;
+nonterminal DesignatorStatement;
+nonterminal Assignop, DesignatorOpList, DesignatorOpListElem;
+nonterminal AddOpInExprList, Addop, MulOpInExprList, Mulop, Label;
+
+nonterminal rs.etf.pp1.symboltable.concepts.Obj ProgName, Consts, MethodName, Designator, DesignatorArrayName, DesignatorMatrixName, Expr;
+nonterminal rs.etf.pp1.symboltable.concepts.Obj Factor, Term, PrintArgument, Negative;
+nonterminal rs.etf.pp1.symboltable.concepts.Struct Type;
+
+Program ::= (Program) PROGRAM ProgName ProgDeclList LCURLYBRACE MainMethodDecl RCURLYBRACE;
+
+ProgName ::= (ProgName) IDENT:progName;
+
+ProgDeclList ::= (ProgDeclarations) ProgDeclList ProgDecl
+				|
+				(NoProgDecl) /*epsilon*/
+				;
+				
+ProgDecl ::= (ConstProgDecl) ConstDecl
+			 |
+			 (VarProgDecl) VarDecl
+			 ;
+			
+				   
+MainMethodDecl ::= (MainMethodDecl) VOID:returnType MethodName LPAREN RPAREN VarDeclList LCURLYBRACE StatementList RCURLYBRACE;
+			   
+MethodName ::= (MethodName) IDENT:methodName;
+			   
+Type ::= (Type) IDENT:typeName;
+				 
+
+ConstDecl ::= (ConstDecl) CONST Type ValueAssignment ValueAssignmentList SEMI;
+
+ValueAssignmentList ::= (ValueAssignments) ValueAssignmentList COMMA ValueAssignment
+						|
+						(NoValueAssignments) /*epsilon*/
+						;
+
+					    
+ValueAssignment ::= (ValueAssignment) IDENT:constName ASSIGNMENT Consts:constValue;
+
+Consts ::= (NumConst) NUM:numConst 
+			|
+			(CharConst) CHAR:charConst
+			|
+			(BoolConst) BOOL:boolConst
+			;
+			
+VarDeclList ::= (IsVarDeclList) VarDeclList VarDecl
+				|
+				(NoVarDeclList) /*epsilon*/
+				;
+			
+			
+VarDecl ::= (VarDecls) Type:varType VarDeclaration VarDeclarationList SEMI;
+
+
+
+VarDeclarationList ::= (MulipleVarDeclaration) VarDeclarationList COMMA  VarDeclaration
+					  |
+					  (VarDeclarationListError) Type:varType error:e
+						{: parser.report_error("Izvrsen oporavak u liniji " + eleft, null); :}
+					  |
+					  (NoVarDeclarationList) /*epsilon*/
+					  ; 
+							
+VarDeclaration ::= (SingleVarDeclaration) IDENT:varName 
+				  | 
+				  (ArrayVarDeclaration) IDENT:arrayName LSQUAREBRACE RSQUAREBRACE
+				  |
+				  (MatrixVarDeclaration) IDENT:matrixName LSQUAREBRACE RSQUAREBRACE LSQUAREBRACE RSQUAREBRACE
+				  |
+				  (VarDeclarationError) error:e
+				  {: parser.report_error("Izvrsen oporavak u liniji " + eleft, null); :}
+				  ;
+
+StatementList ::= (StmtList) StatementList Statement 
+				  |
+				  (NoStmtList) /*epsilon*/
+				  ;		
+				  
+				  
+Statement ::= (DesigStatement) DesignatorStatement SEMI
+			  |
+			  (ReturnStatement) RETURN SEMI
+			  |
+			  (ReadStatement) READ LPAREN Designator RPAREN SEMI
+			  |
+			  (PrintStatement) PRINT LPAREN Expr PrintArgument RPAREN SEMI
+			  |
+			  (StatementsBlock) LCURLYBRACE StatementList RCURLYBRACE
+			  ;
+			  			 			  
+               
+PrintArgument ::= (IsPrintArgument) COMMA NUM:numValue
+				  |
+				  (NoPrintArgument) /*epsilon*/
+				  ;	 
+				  
+DesignatorStatement ::= (DesignatorAssignmentOp) Designator Assignop Expr
+						|
+						(DesignatorIncrementOp) Designator INCREMENT
+						|
+						(DesignatorDecrementOp) Designator DECREMENT
+						|
+						(DesignatorStatementError ) Designator Assignop error:e
+						{: parser.report_error("Izvrsen oporavak u liniji " + eleft, null); :}
+						;				  
+					  
+
+Expr ::= (Expr) Negative AddOpInExprList;
+
+Negative ::= (IsNegative) MINUS Term:exprTerm
+		     |
+		     (NoNegative) Term:exprTerm
+		     ;
+		     
+AddOpInExprList ::= (IsAddOpInExprList) AddOpInExprList Addop Term
+					|
+					(NoAddOpInExprList)/*epsilon*/
+					;
+					
+
+
+Term ::= (Term) Factor:termFactor MulOpInExprList;
+					  
+MulOpInExprList ::= (IsMulOpInExprList) MulOpInExprList Mulop Factor
+					|
+					(NoMulOpInExprList)/*epsilon*/
+					;
+							
+
+Factor ::= (DesignatorFactor) Designator:factorDesignator 
+		   |
+		   (ConstFactor) Consts
+		   |
+		   (NewArrayFactor) NEW Type:factorArrayType LSQUAREBRACE Expr:numofElInArray RSQUAREBRACE
+		   |
+		   (NewMatrixFaxtor) NEW Type:factorMatrixType LSQUAREBRACE Expr:numOfRows RSQUAREBRACE LSQUAREBRACE Expr:numOfColumn RSQUAREBRACE
+		   |
+		   (ExprFactor) LPAREN Expr:factorExpr RPAREN
+		   ;
+		   
+			     
+Designator ::= (DesignatorVar) IDENT:varName
+			    |
+			   (DesignatorArray) DesignatorArrayName LSQUAREBRACE Expr:index RSQUAREBRACE
+			   |
+			   (DesignatorMatirx) DesignatorArrayName LSQUAREBRACE Expr:row RSQUAREBRACE LSQUAREBRACE Expr:column RSQUAREBRACE
+			   ;
+
+DesignatorArrayName ::= (DesignatorArrayName) IDENT:arrayName;
+				  
+Label ::= (Label) IDENT;
+
+Assignop ::= (Assignop) ASSIGNMENT;
+
+		  
+Addop ::= (PlusOp) PLUS
+		  |
+		  (MinusOp) MINUS
+		  ;
+		  
+Mulop ::= (MultiplicationOp) MUL
+		  |
+		  (DivOp) DIV
+		  |
+		  (ModOp) MOD
+		  ;
+
+			     
+
+		   
+
+
+
+
+
+					
+
+
+
+
+				  
+				  
+              
+			  
+
+
+
+					
+
+					
+
+					
+
+
+
+				  
+
+			 
+
+				
+
+
+
+				
